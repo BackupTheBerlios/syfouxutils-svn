@@ -1,0 +1,17 @@
+This is the Syfou's X Utils site regeneration infrastructure. It needs:
+
+- GNU Make (tested on gnu make 3.81)
+- find (tested on GNU find 4.3.0)
+- htmltidy (tested on htmltidy 5.10.26)
+- sed (tested on GNU sed 4.1.5)
+- python (tested on python 2.5.0)
+- asciidoc (tested on asciidoc 8.1.0)
+- source-highlight (tested on source-highlight 1.11)
+
+Just type:
+
+make...............Build the whole site in place
+make prepare.......Copy the site tree under tmp/
+make publish.......Rsync the file to berlios (with proper credentials)
+make clean.........Clean everything
+

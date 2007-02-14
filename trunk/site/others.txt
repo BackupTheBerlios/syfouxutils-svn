@@ -1,0 +1,4 @@
+Other Utilities
+---------------
+
+Here are slightly more elaborate utilities with a more thorough documentation:

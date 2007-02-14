@@ -1,0 +1,31 @@
+#! /usr/bin/env python
+
+# Short hack to cleanup the html version of the code documentation from
+# unwanted external code.
+#                     -- Sylvain <syfou@users.berlios.de>
+#
+import pydoc
+import sys, re, os.path
+
+class MyHTMLDoc(pydoc.HTMLDoc):
+    def classlink(self, object, modname):
+        name, module = object.__name__, sys.modules.get(object.__module__)
+        if (hasattr(module, name) and
+            getattr(module, name) is object and
+            module.__name__ == 'xlamesaver'):
+            return '<a href="#%s">%s</a>' % (
+                name, pydoc.classname(object, modname))
+        return pydoc.classname(object, modname)
+
+    def modulelink(self, object):
+        return str(object.__name__)
+
+    def docmodule(self, object, name=None, mod=None, *ignored):
+        def basename(m): return os.path.basename(m.group(1))
+        return re.sub('<a href="file:[^"]*">([^<]*)</a>', basename,
+                      pydoc.HTMLDoc.docmodule(self, object,
+                                              name=None, mod=None, *ignored))
+
+if __name__ == '__main__':
+    pydoc.html = MyHTMLDoc()
+    pydoc.cli()

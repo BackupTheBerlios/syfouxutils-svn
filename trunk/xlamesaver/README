@@ -1,0 +1,459 @@
+XLameSaver HOWTO
+================
+Sylvain Fourmanoit <syfou@users.berlios.de>
+
+//////////////////////////////////////////
+This is an asciidoc document. You can read
+it directly, or process it to get a nicely
+formatted html version. If you want 
+the full output, don't forget to:
+
+- Have source-highlight installed
+- Install xlamesaver first
+- Invoke asciidoc with --unsafe argument
+//////////////////////////////////////////
+
+**********************************************************************
+Latest version of this document can be found
+http://syfouxutils.berlios.de/xlamesaver/[here]. XlameSaver is part of
+http://syfouxutils.berlios.de/[Syfou's X Utils].
+**********************************************************************
+
+XLameSaver is a highly-scriptable screensaver management daemon for the X Window
+System; this document explains how to install and use it.
+
+Introduction
+------------
+Typically, a screensaver daemon waits until the core input devices (the keyboard
+and pointer) have been inactive for a while, then run some graphic demo,
+that will be turned off as soon as some device activity is detected.
+
+NOTE: 'If it ain't broke, don't fix it': the `xscreensaver` program from the
+http://www.jwz.org/xscreensaver/[XScreenSaver package] is the most widely
+deployed of such programs under X, and for good reasons. If you have no specific
+incentive for running `xlamesaver` instead, 'by all means' stick with it.
+
+This generic principle is fine, but what happens if you have displays with more
+than one head (two, three or even five screens)? How is the screensaver daemon
+supposed to handle screens that have seen no activity for a while, when you are
+actively working on some other?  Does this mean no graphic demo should be
+launched anywhere? What if you have some screens that do not support some hacks
+very well, or that needs extra care before getting "screensaved"? What if you
+don't want a given screen to enter into preservation mode when some apps (web
+browser, etc.) are running on it?  Other screensaver daemons are not very good
+with these special cases, but XLameSaver provides just the framework to deal
+with them.
+
+.XLameSaver was written with complex or non-standard X environments in mind
+******************************************************************************
+Its behavior can be tailored to match about any scenario, so that power users
+with special needs and professionals with big multiheads environments can
+customize screensaving exactly the way they want it.
+******************************************************************************
+
+XLameSaver provides an elegant solution to a somewhat complex configuration
+problem, more generic than the one the average user faces. The added flexibility
+is only available through manual configuration, and *XLameSaver is targeted at
+advanced end-users*: minimal proficiency with common building blocks of open
+source software is assumed -- if you don't have a C compiler installed or never
+heard of http://python.org/[Python] before, this software might not be right for
+you.
+
+IMPORTANT: XLameSaver is only a screensaver management 'daemon'. You do need to
+provide external graphic demos (such as XScreenSaver's hacks) if you want any;
+of course, XLameSaver supports them.
+
+Requirements
+------------
+A semi-recent C compiler:: Code is C90 plus variadic macros (only standardized
+in C99, but most C preprocessors of less than ten years supports them). It
+should compiles on all gcc >= 2.95.1.
+
+A reasonably POSIX compliant system:: This code assumes a few system
+characteristics, such as the presence of a valid `$HOME` variable in the
+environment, and the availability of Unix sockets. Developed on GNU/Linux, on a
+2.4 GNU C Library, and 2.6.x kernel.
+
+X libraries and headers:: Developed against the official X.org 7.1.1 tree, but
+should work on everything X11.
+
+A full Python 2.5.x environment, including headers:: Some distros and BSDs
+contracted the bad habit to butcher stock Python, removing distutils and such:
+you will need what they removed (if this affects you, look around for
+`python-devel` packages and similar)... Since the code is using many of the
+recent languages constructs, you will also need Python 2.5; nothing besides the
+stock environment (third-party modules, etc.) is needed.
+
+Download, Compilation and Installation
+--------------------------------------
+Fetching the code
+~~~~~~~~~~~~~~~~~
+XLameSaver is made available through http://subversion.tigris.org/[Subversion]
+as part of http://syfouxutils.berlios.de/[Syfou's X Utils]. You can get it
+anonymously by doing:
+
+--------------------------------------------------------------
+svn checkout svn://svn.berlios.de/syfouxutils/trunk/xlamesaver
+--------------------------------------------------------------
+
+Further directives and explanation can be found
+http://developer.berlios.de/svn/?group_id=7820[online].
+
+Compiling and installing
+~~~~~~~~~~~~~~~~~~~~~~~~
+First, make sure your system meets the requirements above. XLameSaver comes with
+a Distutils script. In most cases, it should be enough to perform:
+
+-----------------------
+python setup.py install
+-----------------------
+
+See the official http://www.python.org/doc/2.5/inst/inst.html[Installing Python
+Modules] guide for a thorough explanation on how you can use such scripts; if
+needed, edit the `setup.py` script to fit your system.
+
+Usage
+-----
+
+NOTE: Unless otherwise specified, all the command lines are in Bourne shell
+(`sh`).
+
+For the Impatient
+~~~~~~~~~~~~~~~~~
+Try this (and do not exit):
+
+---------------
+sh$ xlamesaver
+---------------
+
+Then wait one minute, and all your screens from your current X session should
+blank, as defined in your default `$HOME/.xlamesaver` preferences file. You can
+also blank them instantly by calling from the same X session:
+
+--------------------------------------
+sh$ xlamesaver --reset-all --offset 60
+--------------------------------------
+
+[[basic]]
+Basic Invocation
+~~~~~~~~~~~~~~~~
+XLameSaver comes with a single executable (`xlamesaver`), that can be used both
+as a daemon or as a command-line daemon controller, depending on how it is
+invoked:
+
+[xlamesaver]
+manual~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When you build from the site, man page will be inserted here.
+manual~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Calling `xlamesaver` without argument from a running X session is what most
+people with want. In this mode, `xlamesaver` acts as a daemon, a forever running
+foreground process that logs significant messages to stderr:
+
+--------------------------------------------------------------------
+sh$ xlamesaver
+13-12 01:21:53 INFO Daemon started, listening...
+--------------------------------------------------------------------
+
+Most people will thus put a line similar to this somewhere in there XSession
+initialization sequence (in their `$HOME/.xinitrc` or similar):
+
+-----------------------------------------
+xlamesaver > $HOME/.xlamesaver.log 2>&1 &
+-----------------------------------------
+
+TIP: It is very useful to start xlamesaver daemon from a pseudo-terminal
+whenever you want to tweak your preferences (`$HOME/.xlamesaver` by default),
+since you can see in real time what happens. If needed, you can kill the current
+instance with `xlamesaver --exit`.
+
+From the same X session (or from a different one, using the `--display` option,
+provided you act under the same user id), you can force this daemon to exit at
+all time by doing:
+
+---------------------
+sh$ xlamesaver --exit
+---------------------
+
+Configuration
+~~~~~~~~~~~~~
+
+[[criteria]]
+The basis
+^^^^^^^^^
+Basically, XLameSaver triggers user-defined events, such as running an arbitrary
+script, or blanking a screen. Here are very short, yet fully working
+`$HOME/.xlamesaver` preferences:
+
+[python]
+.blank all screens after one minute
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import BlankEvent
+
+events = [ BlankEvent(time=60, dbglabel="blank all") ]
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Events have a set of three properties, that specify when a given event should be
+launched:
+
+time::
+	the inactivity timeout, in seconds (default to one minute)
+modes::
+	the list of modes the event belongs too (default to "default" singleton)
+screens::
+	the list of screens the event manages (default to all available screens)
+
+A given event will usually be started whenever current daemon mode of operation
+belongs to 'modes', and that all the 'screens' specified for an event have been
+inactive for at least the given 'time'. 
+
+NOTE: Daemon mode of operation is just an arbitrary string (defaulted to
+"default"), that can be used to segregate events based on external, arbitrary
+criteria: you can use the `--mode` and `--pop` switch (see xref:basic[basic
+invocation]) to change it dynamically from the command line (actually, the last
+modes set using `--mode` are pushed on a stack, and the current mode is on top).
+
+Dealing with multiple events
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Suppose you have two screens (0 and 1) on your display. You could use:
+
+[python]
+.separate screens blanking
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import BlankEvent
+
+events = [ BlankEvent(time=60, screens=[0], modes=["default"], 
+                      dbglabel="blank screen 0"),
+           BlankEvent(time=60, screens=[1], modes=["default", "justone"],
+                      dbglabel="blank screen 1") ]
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The screens blanking are now independent from one another: as long as no
+activity is detected on a given screen, it will blank after one minute,
+regardless of what happens on the other. If you change the daemon mode to
+"justone" (`xlamesaver --mode=justone`), only screen 1 will blank. You can
+revert to the previous mode by popping this last mode from the stack
+(`xlamesaver --pop`).
+
+An arbitrary number of events can be defined in the preferences file; XLameSaver
+has a simple policy for dealing with "conflicting" events:
+
+. Only one event can run on any given screen at any given time.
+
+. If multiple events meet the right criteria to be run (xref:criteria[see
+  above]) while having at least one screen in common, the event with the highest
+  seniority (i.e. the one with the largest 'time' parameter) will be picked.
+
+TIP: This policy can used to specify chronological sequences of events.
+
+To illustrate this, let's look at this other preferences file, assuming a
+multi-heads display once again:
+
+[python]
+.chronological events
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import BlankEvent
+
+events = [ BlankEvent(time=60 , screens=[1], 
+                      dbglabel="Blank screen 1"),
+           BlankEvent(time=120, 
+                      dbglabel="Blank all screens") ]
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here, screen 1 will be blanked after one minute of inactivity. Similarly, the
+second event will be triggered after two minutes (since it has more seniority:
+120 > 60), and all screens will go blank (of course, first event will be stopped
+beforehand, since it conflicts with it). On any activity, the second event will
+be stopped; blanking on screen 1 via first event might resume, depending where
+the activity took place.
+
+Events of interest
+^^^^^^^^^^^^^^^^^^
+
+XLameSaver comes bundled with a number of events, three of them coming
+especially handy:
+
+BlankEvent::
+	Blank one or many screens
+XScreenSaverEvent::
+	Invoke XScreenSaver hacks
+ScriptEvent::
+	Invoke arbitrary scripts
+
+The link:xlamesaver.html[xlamesaver Python module documentation] explains in
+great lengths how those events can be used; their basic invocation was
+meant to be very simple though:
+
+[python]
+.interfacing XScreenSaver
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import XScreenSaverEvent
+
+events = [ XScreenSaverEvent(time=60, dbglabel='XScreenSaver hacks on all screens'
+			     cycle=120, 
+                             hacks_criteria={0 : {'visuals':['GL']}}) ]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here, XScreenSaver random hacks will be run on all available screens after one
+minute, changing every two minutes; nothing but OpenGL hacks will be run on
+screen 0. By default, the enabled hacks and their settings are all read from the
+XScreenSaver preferences files (usually `$HOME/.xscreensaver`) -- users should
+set them though `xscreensaver-demo` or their system equivalent. There is also
+two other more advanced events worth mentioning:
+
+CompoundEvent::
+	Bind disjoint events so that they react together to pointer and keyboard
+StateChangeEvent::
+	Dynamically change the daemon mode or inactivity settings on one or many
+        screens
+
+'CompoundEvent' comes handy when someone run different events on different
+screens, yet wanting to stop them at the same time when the pointer or keyboard
+is used:
+
+[python]
+.binding unrelated events together
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import CompoundEvent, XScreenSaverEvent, BlankEvent
+
+events = [ CompoundEvent(time=60, screens=[0, 1],
+	                 subevents = [XScreenSaverEvent(screens=[0]),
+                                      BlankEvent(screens=[1])]) ]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here, after one minute or inactivity on screens 0 and 1, the surrogate
+'CompoundEvent' will be triggered, and screen 1 will be blanked, while a
+XScreenSaver hack will be run on screen 0. Both subevents will be stopped
+together whenever activity will be detected on any of screens 0 or 1.
+
+As for 'StateChangeEvent', people with the right inclination may have noticed
+that, in fact, XLameSaver is nothing more than a finite state machine; current
+mode and per-screen activity ranges are the states, and the configuration
+defines how it should evolves (the state transitions): the user can externally
+change these states from the command line (see xref:basic[basic invocation]),
+while 'StateChangeEvent' gives a way to do do the same automatically under given
+conditions:
+
+[python]
+.alterning forever between blanking screens and using hacks
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from xlamesaver import StateChangeEvent, XScreenSaverEvent, BlankEvent
+
+events = [ XScreenSaverEvent(time=60),
+	   StateChangeEvent(time=120, 
+                            to_mode='alt', 
+                            reset_screens=[0], reset_offsets={ 0:60 }),
+	   BlankEvent(time=60, modes=['alt']),
+           StateChangeEvent(time=120, modes=['alt'], 
+                            to_mode='default', 
+                            reset_screens=[0], reset_offsets={ 0:60 }) ]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Basically, this will cause XScreenSaver hacks to be run after one minute of
+inactivity, then screens will go blank after one other, and the cycle will
+repeat indefinitively. In case of inactivity, the screen will begin again where
+is was interrupted after one minute.
+
+WARNING: Using 'StateChangeEvent' is bug-prone, since it it easy to create
+unwanted infinite loops and such; people should always monitor the daemon
+closely when setting in place a configuration using this feature.
+
+Once again, let's reiterate that 'the proof is in the pudding':
+link:xlamesaver.html[xlamesaver Python module] is were you can learn about all
+the fine details.
+
+Going further
+^^^^^^^^^^^^^
+This is just a taste of what level of policing you can achieve with XLameSaver;
+in fact, XLameSaver preferences files (`$HOME/.xlamesaver` by default) is Python
+code, injected into the daemon at runtime. Hopefully, XLameSaver will already
+provide out of the box the necessary framework to cover most screensaving needs,
+but if one has other requirements, arbitrary code can be written to extend or
+modify the daemon behavior; here is a non-trivial example usable on a dual
+screen display, with Beryl running on screen 0:
+
+[python]
+.some real world, yet exotic configuration
+source~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# XLameSaver preferences file
+#
+from os import system
+from os.path import basename, join
+from xlamesaver import BlankEvent, XScreenSaverEvent, \
+     ScriptEvent, CompoundEvent
+
+# Tolerated pointer hysteresis (in pixels)
+#
+hysteresis = 10
+
+# Mode at startup time
+#
+mode = 'bound'
+
+# Custom Event
+#
+class XWinWrapEvent(ScriptEvent):
+  def config(self, cycle=None,
+             hack_path='/usr/lib/misc/xscreensaver',
+             hack='glmatrix'):
+    self.hack = hack
+    ScriptEvent.config(
+      self, cycle, activate=False,
+      command='xwinwrap -ni -argb -fs -s -st -sp -a -nf -- %s -window-id WID' %
+      join(hack_path, hack))
+
+  def stop(self):
+    ScriptEvent.stop(self)
+    system('killall %s' % self.hack)
+
+# Generation routine
+#
+def gen_events():
+  return [evt(**params) for evt, params in
+          [(XWinWrapEvent,
+            {'screens':[0], 'dbglabel': 'matrix effect'}),
+           (XScreenSaverEvent,
+            {'screens':[1], 'dbglabel': 'demo screen 1', 'cycle': 60, 
+             'hacks_criteria': { 1 : {'visuals':[None]}}})]]
+
+# Events
+events = gen_events() + [
+  CompoundEvent(time=60, modes=['bound'], subevents=gen_events()),
+  BlankEvent(time=300, modes=['default', 'bound'], dbglabel='blank all')]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example, a custom 'XWinWrapEvent' is defined (as a specialization to
+'ScriptEvent'), that provides support for overlayed OpenGL hacks on
+hardware-accelerated OpenGL Windows manager with compositing such as Compiz or
+Beryl. The same basic two events (basic screensaver hacks on screen 1 without
+OpenGL, xwinwraped glmatrix hack on screen 0) are then instantiated twice, once
+as independent events in the default mode, once as subevent of a compound event
+in mode 'bound'. Finally, a blanking event is set for both mode after five
+minutes of inactivity... Basically, this means:
+
+- That in mode 'bound' (the one XLameSaver will start in), screen 0 will see a
+overlaying matrix effect after one minute or inactivity, while screen 1 will see
+a random non-opengl XScreensaver hack, cycling every minute.
+
+- That the same will be seen in mode 'default'.
+
+- That the difference between the two modes ('bound' and 'default') is that in
+'bound' mode, any pointer or keyboard activity will stop screensaving on *both*
+screens, while scrensaving operations are independent in 'default' mode.
+
+- That both screens will blank after five minutes of complete inactivity,
+regardless of the mode.
+
+Once again, there is a fair chance most users will never need to go that far:
+this subsection was only meant to point out this was possible; people needing
+this kind of extensibility should probably take a peek to the
+link:xlamesaver.html[xlamesaver Python module documentation], or even go read
+the original code (`xlamesaver.py`). XLameSaver code base is compact (only
+around 1100 lines of commented Python), and hopefully easy to read.
+
+//////////////////////////////////////////
+That's just a footer for web publication:
+ignore it in case of warnings.
+//////////////////////////////////////////
+include::../site/credits.txt[]

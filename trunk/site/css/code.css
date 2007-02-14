@@ -1,0 +1,8 @@
+/* CSS 2 source highlight class 
+ */
+.keyword  { color: #0000ff; font-weight: bold; }
+.symbol   { color: #990000;                    }
+.function { color: #000000; font-weight: bold; }
+.number   { color: #009900;		       }
+.string   { color: #ff0000;                    }
+.high     {                 font-weight: bold; }

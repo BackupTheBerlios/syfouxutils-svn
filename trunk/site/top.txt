@@ -1,0 +1,58 @@
+Welcome to syfouxutils.berlios.de
+=================================
+Sylvain Fourmanoit <syfou@users.berlios.de>
+{localdate}
+
+General Directions
+------------------
+
+What you will find here
+~~~~~~~~~~~~~~~~~~~~~~~
+Here is a collection of utilities for the X Window System written over the years
+to bring specialized or non-standard functionalities missing to some X
+environments; these utilities all share a few common characteristics:
+
+- They are all relatively simple, often contained as a single and relatively
+  short source file.
+- They are all targeted at POSIX systems.
+- They do not depend on any widget toolkits: only on Xlib.
+- They generally avoid using any libraries besides libc and Xlib.
+- They are light on resources.
+- They are WM-agnostic (when applicable, they comply with the EWMH).
+
+*******************************************************************************
+They are distributed "'as-is'" under a BSD license (see
+<<copyright,Redistribution Conditions>> below), in the hope they will be useful
+to 'experimented'  end-users and programmers looking for quick fixes, or for
+simple working caveats to reuse and extend.
+*******************************************************************************
+
+Getting the source
+~~~~~~~~~~~~~~~~~~
+The code is available through http://subversion.tigris.org/[Subversion].
+You can get it anonymously by doing:
+
+-----------------------------------------------------
+svn checkout svn://svn.berlios.de/syfouxutils/trunk/
+-----------------------------------------------------
+
+Further directives and explanation can be found
+http://developer.berlios.de/svn/?group_id=7820[online].
+
+What do do from here
+~~~~~~~~~~~~~~~~~~~~
+The source layout is pretty simple: each utility is stored in its own,
+stand-alone subdirectory of the trunk (plus `site`, which depends on everything
+else and contains this web site). All utilities come fully self-documented, with
+instruction on how to build and use. The most elaborate ones also have
+additional documentation, available as plain text. What you must do is to:
+
+. `cd` to the directory containing the utility you are interested in.
+. Lookup the source code or the additional documentation for instructions.
+. Build it then use it, as appropriate.
+
+For your convenience, all the documentation on a per-utility basis is reproduced
+below.
+
+
+

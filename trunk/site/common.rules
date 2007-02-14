@@ -1,0 +1,59 @@
+# Common rules. 
+
+# Basically, all you have to do is to define some TARGETS and EXTRAS (as well as
+# associated rules for TARGETS) then include common.rules and the magic is
+# done. If you want to recursively call a given rule, use the canned sequence
+# $(recurse) within your rule -- you might want to manually set SUBDIRS if you
+# have special needs.
+
+SUBDIRS ?= $(shell find . -maxdepth 1 -mindepth 1 -type d -not -name 'tmp')
+
+ifeq ($(MAKELEVEL),0)
+export BASE=$(shell pwd)
+DEST = $(BASE)/tmp
+PFX = .
+else
+DEST = $(abspath $(addprefix $(BASE)/tmp/,$(patsubst $(BASE)%,%,$(CURDIR))))
+PFX = $(shell echo $(patsubst $(BASE)/%,%,$(CURDIR)) | sed 's/[^\/]*/../g')
+endif
+
+define recurse
+@STATUS=0; \
+for DIR in $(SUBDIRS); do \
+	if test -e $$DIR/GNUmakefile ; then \
+		$(MAKE) -C $$DIR $@ ; \
+		STATUS=$$? ; \
+	fi ; \
+	test $$STATUS -eq 0 || break; \
+done ; \
+test $$STATUS -eq 0 || false
+endef
+
+define tidy
+tidy -asxml -w 80 -i -m -q $@ || test $$? -eq 1 || false
+endef
+
+define asciidoc
+env PATH=$$PATH:$(dir $<) \
+		asciidoc  --unsafe --backend=xhtml11 \
+			--conf-file=$(PFX)/layout.conf \
+                        --conf-file=$(PFX)/filter.conf \
+                        --conf-file=$(PFX)/manual.conf --attribute=badges \
+			-a stylesdir=$(PFX) $(ASCIIDOC_PARAMS) -o $@ $< && \
+	$(tidy) 
+sed -i '3a<!-- Layout screwed? Get a better browser, or turn page style off!\n  -->\n' $@
+endef
+
+all: $(TARGETS)
+
+.PHONY: _clean _prepare clean prepare
+
+_prepare: $(TARGETS) $(EXTRAS)
+	test -e $(DEST) || mkdir --parents $(DEST)
+	for TARGET in $(TARGETS) $(EXTRAS); do cp -v $$TARGET $(DEST) ; done
+
+_clean:
+	-rm -rf $(TARGETS)
+
+prepare: _prepare
+clean: _clean
