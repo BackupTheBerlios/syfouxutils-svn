@@ -1166,6 +1166,6 @@ WARRANTY, to the extent permitted by law.""")
           send_command(display, 'exit')
 
 #-------------------------------------------------------------------------------
-# Invoke the intery point if called as module
+# Invoke the entry point if not called as module
 #
-if __name__ == '__main__': main()
+if __name__ == '__main__': cli()

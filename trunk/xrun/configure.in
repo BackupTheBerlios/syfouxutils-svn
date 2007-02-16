@@ -1,0 +1,55 @@
+AC_INIT
+AC_LANG(C)
+AM_INIT_AUTOMAKE(xrun,svn)
+AC_PROG_CC
+
+dnl save initial settings, adding -Wall
+TMP_CFLAGS="${CFLAGS} -Wall"
+TMP_LIBS="${LIBS}"
+
+dnl Check for terminal management for readline
+AC_CHECK_LIB(ncurses, tputs, HaveLibTermcap=yes; LibTermcap=ncurses,
+   AC_CHECK_LIB(termcap, tputs, HaveLibTermcap=yes; LibTermcap=termcap,
+      AC_CHECK_LIB(curses, tputs, HaveLibTermcap=yes; LibTermcap=curses,
+                   HaveLibTermcap=no)))
+if test $HaveLibTermcap = "yes" ; then
+   LIBS="$LIBS -l$LibTermcap"
+else
+   AC_MSG_ERROR([Could not find terminal management library for readline
+(either ncurses, termcap or curses).])
+fi
+
+dnl Check for readline
+AC_CHECK_LIB(readline,readline,
+  READLINE_LIBS="-l$LibTermcap -lreadline",
+  AC_MSG_ERROR([Could not find the readline library]),
+  $LFLAGS)
+
+dnl Check for history support
+AC_CHECK_LIB(history,add_history,
+	READLINE_LIBS="$READLINE_LIBS -lhistory";
+	HaveLibHistory=history,
+	AC_CHECK_LIB(readline,add_history,
+	HaveLibHistory=readline,
+	HaveLibHistory=no,
+	$READLINE_LIBS),
+	$READLINE_LIBS)
+
+if test $HaveLibHistory = "no"; then
+AC_MSG_ERROR([Could not find GNU history library in the system])
+else
+AC_CHECK_LIB($HaveLibHistory,free_history_entry,
+	AC_DEFINE(HAVE_FREE_HISTORY_ENTRY,1,
+	[Define to 1 if you have the `free_history_entry' function.]),,
+	$READLINE_LIBS)
+fi
+
+AC_SUBST(READLINE_LIBS)
+
+dnl Restore initial settings
+CFLAGS="${TMP_CFLAGS}"
+LIBS="${TMP_LIBS}"
+
+dnl Output the results
+AM_CONFIG_HEADER(config.h)
+AC_OUTPUT(Makefile)
