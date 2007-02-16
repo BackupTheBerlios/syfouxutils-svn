@@ -15,6 +15,7 @@ if test "x$1" = "x--clean" ; then
 	-not -name 'Makefile.am'   \
 	-not -name 'xrun.c'        \
         -not -name 'xrunwrap.sh'   \
+	-not -name '.svn'          \
 	-exec rm -rf \{\} ';'
 else
     for F in README NEWS AUTHORS ChangeLog ; do touch ${F}; done

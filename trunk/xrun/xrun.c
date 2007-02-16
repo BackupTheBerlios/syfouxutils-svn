@@ -65,7 +65,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Headers */
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
+#include <dirent.h>		/* scandir()  */
+
+#include <sys/types.h> 		
+#include <sys/stat.h>		/* open()     */
+#include <sys/wait.h>		/* wait_pid() */
+#include <fcntl.h>
 
 #include <unistd.h>
 
@@ -354,6 +359,10 @@ Interactively capture, then run a given command in the default shell.\n\
   -c CMD        set default command\n\
   -p PFX        set command prefix\n\
   -s SFX        set command suffix\n\
+  -b TIMEOUT    set background timeout (in tenth of second)\n\
+                using this option will make xrun execute command\n\
+                detached, and bail out considering the command\n\
+                was a success on timeout\n\
   -n NAME       set readline name (used in conditional parsing\n\
                 of inputrc file, and on selection of the history file),\n\
                 default is 'xrun'\n\
@@ -389,26 +398,64 @@ parse_expantion(char * list)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Build, then run the given command in the default shell
- */
-int 
-run(char * pfx, char * cmd, char * sfx)
+/* Execute the '/bin/sh -c "pfx+cmd+sfx"' command. timeout specify the delay (in
+   tenth of a second) we should wait before returning, negative value meaning
+   waiting indefinitively -- timed operation implies detaching the child
+   from the terminal.
+
+   The function returns 1 on successful command execution (based on sh exit
+   code), and 0 on error. When applicable, it assumes the command has succeeded
+   if it has not finished on timeout.
+*/
+int
+run(char * pfx, char * cmd, char * sfx, int timeout)
 {
-  int n;
-  char * final;
+  int i, ret = 0;
+  char * argv [] = { "/bin/sh", "-c", NULL, NULL };
+  pid_t child;
+
+  term_setsize(RUN_MODE);
 
 #define SLEN(s) ((s)?strlen(s):0)
-  if ((n = SLEN(pfx) + SLEN(cmd) + SLEN(sfx))>0 && 
-      (final = malloc(n))) {
-    final[0] = 0;
-    if (pfx) strcat(final, pfx); 
-    if (cmd) strcat(final, cmd);
-    if (sfx) strcat(final, sfx);
-    term_setsize(RUN_MODE);
-    n = (system(final)==0);
-  }
+  if ((i = SLEN(pfx) + SLEN(cmd) + SLEN(sfx)) &&
+      (argv[2] = malloc(sizeof(char)*(i+1)))) {
 #undef SLEN
-  return n;  
+
+    /* Build ou the command argument */
+    argv[2][0] = 0;
+    if (pfx) strcat(argv[2], pfx);
+    if (cmd) strcat(argv[2], cmd);
+    if (sfx) strcat(argv[2], sfx);
+
+    /* Fork the child */
+    switch((child = fork())) {
+    case -1:
+      perror("fork");
+      break;
+    case 0:
+      /* Child */
+      if (timeout >= 0) {
+	/* Detach stdin, stdout amd stderr, and reattach to /dev/null */
+	for (i=0; i<3; ++i) close(i);
+	open("/dev/null", O_RDWR, 0); dup(0); dup(0);
+	/* Create new session ID: needed to avoid SIGINT later */
+	setsid();
+      }
+      usleep(100000);           /* Make sure parent's waitpid kicks in */
+      execv(argv[0], argv);
+      exit(1); 			/* If we got here, something went wrong */
+      break;
+    default:
+      /* Parent */
+      if (timeout >= 0) {
+	while (timeout-- && waitpid(child, &i, WNOHANG)==0)
+	  usleep(100000);
+	if (timeout<0) i = 0; 	/* Assumes execution will go fine */
+      } else if (waitpid(child, &i, 0)==-1) i = 1;
+      ret = (i == 0);
+    }
+  }
+  return ret;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -417,7 +464,7 @@ run(char * pfx, char * cmd, char * sfx)
 int 
 main(int argc, char **argv) 
 {
-  int c, exit_on_error = 0;
+  int c, timeout = -1, exit_on_error = 0;
   char * pfx, * sfx, * prompt, * ansi, * name, * hist;
   
   pfx = sfx = prompt = ansi = name = hist = NULL;
@@ -429,7 +476,7 @@ main(int argc, char **argv)
 #define OPTM(c, name, n) \
   case c: if (!parse_geometry(name, optarg, n)) return 1; break
 
-  while ((c=getopt(argc, argv, "hvl:a:d:t:r:gc:p:s:n:ex:"))!= -1)
+  while ((c=getopt(argc, argv, "hvl:a:d:t:r:gc:p:s:b:n:ex:"))!= -1)
     switch(c) {
     case 'v': version();                              return 0;
     case 'h': usage();                                return 0;
@@ -442,6 +489,7 @@ main(int argc, char **argv)
     OPTB('c', cmd);
     OPTB('p', pfx);
     OPTB('s', sfx);
+    case 'b': timeout = atoi(optarg);                 break;
     OPTB('n', name);
     case 'e': exit_on_error = 1;                      break;
     case 'x': if (!parse_expantion(optarg)) return 1; break;
@@ -467,7 +515,7 @@ main(int argc, char **argv)
   do {
     term_setsize(DEFAULT_MODE);
     cmd = readline(prompt);
-  } while (!exit_on_error && !(c = run(pfx, cmd, sfx)));
+  } while (!exit_on_error && !(c = run(pfx, cmd, sfx, timeout)));
 
   /* If command went OK, save result back to the history file
    */
