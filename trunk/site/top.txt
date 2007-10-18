@@ -39,7 +39,7 @@ svn checkout svn://svn.berlios.de/syfouxutils/trunk/
 Further directives and explanation can be found
 http://developer.berlios.de/svn/?group_id=7820[online].
 
-What do do from here
+What to do from here
 ~~~~~~~~~~~~~~~~~~~~
 The source layout is pretty simple: each utility is stored in its own,
 stand-alone subdirectory of the trunk (plus `site`, which depends on everything
